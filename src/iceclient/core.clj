@@ -25,7 +25,7 @@
     (shout_open [void*] int)
     (shout_send [void* byte* size_t] int)
     (shout_sync [void*])
-    (shout_close [void*])
+    (shout_close [void*] int)
     (shout_shutdown [])
     (shout_get_error [void*] constchar*)))
 
@@ -33,7 +33,7 @@
   {:VORBIS 0
    :MP3    1})
 
-(def protocol
+(def protocols
   {:HTTP 0
    :XAUDIOCAST 1
    :ICY 2})
@@ -54,18 +54,29 @@
 (def error-codes (zipmap (vals errors) (keys errors)))
 
 (defmacro assert-success
-  [success? & forms]
-  `(doseq [[pred# form#] (partition 2 '~forms)]
-     (when pred#
-       (let [result# (eval form#)]
-         (when-not (= ~success? result#)
-           (throw (AssertionError. [result# (str "Running " form# " resulted in " result# " not " ~success?)])))))))
-       
+  ([success?] success?)
+  ([success? pred form & more]
+   `(do
+      (when ~pred
+        (let [result# ~form]
+          (when-not (= ~success? result#)
+            (throw (AssertionError. (str "Running " '~form " resulted in " result# " not " ~success?))))))
+      (assert-success ~success? ~@more))))
+
 (loadlib shout)
 
-(defn stream
-  "Send an MP3 stream to a given Icecast instance"
-  [inputstream {:keys [protocol user password host port mount stream-format]}]
+(defn open-connection
+  "Open a connection to an icecast server takes a map with the following defaults:
+  protocol: HTTP
+  user: source
+  password: - (no default)
+  host: localhost
+  port: 8000
+  mount: - (no default)
+  stream-format: VORBIS
+  
+  Returns a libshout native object."
+  [{:keys [protocol user password host port mount stream-format]}]
   (shout_init)
   (if-let [ms (shout_new)]
     (do (try (assert-success
@@ -78,31 +89,29 @@
                mount (shout_set_mount ms mount)
                stream-format (shout_set_format ms stream-format)
                true (shout_open ms))
-          (catch AssertionError e (throw (Exception. (str "Error setting up shout connection: " (.getMessage e) " caused error " (shout_get_error ms))))))
-      (
+          ms ; return
+          (catch AssertionError e
+            (throw (Exception. (str "Error setting up shout connection: " (.getMessage e)
+                                    " caused error " (shout_get_error ms)))))))
     ; else couldn't create shoutcast connector
-    (throw (Exception. (str "could not create shotcast connector: " (shout_get_error ms))))
-
-
-
-(shout_version nil nil nil)
-
-(shout_init)
-
-(def ms (shout_new))
+    (throw (Exception. "could not create shotcast connector: "))))
 
 (defn stream
-  "stream an mp3 file to icecast"
-  [file]
-  (with-open [f (FileInputStream. file)]
-    (let [buffer (byte-array 1024)]
-      (loop [nread (.read f buffer)]
-        (if (pos? nread) 
-          (do 
-            (shout_send ms (ByteBuffer/wrap buffer) nread)
-            (shout_sync ms)
-            (recur (.read f buffer)))
-          (println "end stream"))))))
+  "Stream an input-stream that supports .read to a libshout native object. This
+  call is blocking until the input-stream is consumed or there is an error.  The
+  input-stream data format must match the stream-format of the libshout object."
+  [ms input-stream]
+  (let [buffer (byte-array 1024)]
+    (loop [nread (.read input-stream buffer)]
+      (when (pos? nread) 
+        (when-not (= (:SUCCESS errors) (shout_send ms (ByteBuffer/wrap buffer) nread))
+          (throw (Exception. (str "Error sending data: " (shout_get_error ms)))))
+        (shout_sync ms)
+        (recur (.read input-stream buffer))))))
 
-;; (shout_close ms
-;; (shout_shutdown ms
+(defn close
+  "Closes a shoutcast connection and frees the libshout native object."
+  [ms]
+  (when-not (= (:SUCCESS errors) (shout_close ms))
+    (throw (Exception. (str "Error closing connection: " (shout_get_error ms)))))
+  (shout_shutdown))
