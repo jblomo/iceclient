@@ -1,4 +1,4 @@
-(ns iceclient.core
+(ns iceclient.transmit
   (:use [clj-native.direct :only [defclib loadlib typeof]]
         [clj-native.structs :only [byref byval]]
         [clj-native.callbacks :only [callback]])
@@ -23,6 +23,9 @@
     (shout_set_mount [void* constchar*] int)
     (shout_set_user [void* constchar*] int)
     (shout_set_format [void* int] int)
+    (shout_set_name [void* constchar*] int)
+    (shout_set_genre [void* constchar*] int)
+    (shout_set_description [void* constchar*] int)
     (shout_open [void*] int)
     (shout_send [void* byte* size_t] int)
     (shout_sync [void*])
@@ -75,16 +78,20 @@
 
 (defn open
   "Open a connection to an icecast server takes a map with the following defaults:
-  protocol: HTTP
+  protocol: (:HTTP protocols)
   user: source
   password: - (no default)
   host: localhost
   port: 8000
   mount: - (no default)
-  stream-format: VORBIS
+  stream-format: (:VORBIS stream-formats)
+  ;; keys for client display:
+  display-name: 'no name'
+  genre: -
+  description: -
   
   Returns a libshout native object."
-  [{:keys [protocol user password host port mount stream-format]}]
+  [{:keys [protocol user password host port mount stream-format display-name genre description]}]
   (shout_init)
   (if-let [ms (shout_new)]
     (do (try (assert-success
@@ -96,6 +103,9 @@
                port (shout_set_port ms port)
                mount (shout_set_mount ms mount)
                stream-format (shout_set_format ms stream-format)
+               display-name (shout_set_name ms display-name)
+               genre (shout_set_genre ms genre)
+               description (shout_set_description ms description)
                true (shout_open ms))
           ms ; return
           (catch AssertionError e
@@ -139,24 +149,33 @@
 
 (defn stream
   "Stream an input-stream that supports .read to a libshout native object. This
-  call is blocking until the input-stream is consumed or there is an error.  The
-  input-stream data format must match the stream-format of the libshout object.
-  
+  call is blocking until the input-stream is consumed, continue? returns false,
+  or there is an error.  The input-stream data format must match the
+  stream-format of the libshout object.
+
   Optionally, a metadata map or reference to a map may be passed in.  A
-  reference will be watched for changes and the stream updated accordingly."
-  [ms input-stream & [metadata]]
+  reference will be watched for changes and the stream updated accordingly.
 
-  (when metadata
-    (let [metadata-init (setup-stream-metadata metadata ms)]
-      (update-metadata ms nil nil metadata-init)))
+  Optionally, after the metadata map, you may specify a 'continues' function.
+  If the function returns false, the stream will complete early."
+  ([ms input-stream]
+   (stream input-stream nil (constantly true)))
 
-  (let [buffer (byte-array 1024)]
-    (loop [nread (.read input-stream buffer)]
-      (when (pos? nread) 
-        (when-not (= (:SUCCESS errors) (shout_send ms (ByteBuffer/wrap buffer) nread))
-          (throw (Exception. (str "Error sending data: " (shout_get_error ms)))))
-        (shout_sync ms)
-        (recur (.read input-stream buffer))))))
+  ([ms input-stream metadata]
+   (stream input-stream metadata (constantly true)))
+
+  ([ms input-stream metadata continue?]
+   (when metadata
+     (let [metadata-init (setup-stream-metadata metadata ms)]
+       (update-metadata ms nil nil metadata-init)))
+
+   (let [buffer (byte-array 1024)]
+     (loop [nread (.read input-stream buffer)]
+       (when (and (pos? nread) (continue?))
+         (when-not (= (:SUCCESS errors) (shout_send ms (ByteBuffer/wrap buffer) nread))
+           (throw (Exception. (str "Error sending data: " (shout_get_error ms)))))
+         (shout_sync ms)
+         (recur (.read input-stream buffer)))))))
 
 
 (defn close
@@ -170,6 +189,11 @@
 (defn test-shout
   "Setup and example stream.  Requires icecast running and file available"
   []
-  (let [mystream (open {:password "hackme" :mount "testshout.mp3" :stream-format (:MP3 stream-formats)})]
+  (let [mymeta {:song "songtest"}
+        mystream (open {:password "hackme"
+                        :mount "testshout.mp3"
+                        :stream-format (:MP3 stream-formats)
+                        :display-name "test-shout"
+                        :description "test-shout stream with example file"})]
     (with-open [is (FileInputStream. "/Users/jim/music_test/ONHE.mp3")]
-      (stream mystream is))))
+      (stream mystream is mymeta))))
