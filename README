@@ -1,15 +1,49 @@
 # iceclient
 
-FIXME: write description
+iceclient connects to Icecast servers to either transmit (act as a source client like ices)
+or recieve (act like a music player like winamp).  See Installation for installing libshout for transmitting and JLayer for receiveing.
+
+The newest version of this library should be available on github: http://github.com/jblomo/iceclient
+
+Bugs can be reported to http://github.com/jblomo/
+
+See project.clj for version information.
 
 ## Usage
 
-FIXME: write
+1. iceclient$ ../lein deps
+2. If installing the dependencies fails, see Installation
+
+### Transmit
+
+1. Have a default installation of icecast running on localhost
+2. iceclient$ ../lein repl
+3. (use 'iceclient.transmit)
+4. (test-shout "/path/to/song.mp3")
+
+### Recieve
+
+1. Follow Transmit instructions, or use a known working URL.
+2. iceclient$ ../lein repl
+3. (use 'iceclient.receive)
+4. (play-url "http://localhost:8000/testshout.mp3")
 
 ## Installation
 
-FIXME: write
+To transmit you must be able to load the libshout library with JNA.  This is
+done by installing libshout from http://www.icecast.org/download.php and setting
+jna.library.path to the directory where libshout was installed.
+
+To receive you must have javazoom.net's JLayer library, http://www.javazoom.net/javalayer/javalayer.html .
+You can use mvn install:install-file to install the jar into your local
+repository.
 
 ## License
 
-FIXME: write
+Written by Jim Blomo
+
+The use and distribution terms for this software are covered by the Eclipse
+Public License 1.0, which can be found in the file epl-v10.html at the root of
+this distribution. By using this software in any fashion, you are agreeing to be
+bound by the terms of this license. You must not remove this notice, or any
+other, from this software. 

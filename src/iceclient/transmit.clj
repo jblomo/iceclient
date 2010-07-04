@@ -4,7 +4,8 @@
     [java.io File BufferedInputStream FileInputStream FileNotFoundException]
     [java.nio ByteBuffer]))
 
-(System/setProperty "jna.library.path" "/opt/local/lib")
+;; Use command line or :jvm-opts in project.clj
+;(System/setProperty "jna.library.path" "/opt/local/lib")
 
 
 (defclib
@@ -185,12 +186,13 @@
 
 (defn test-shout
   "Setup and example stream.  Requires icecast running and file available"
-  []
+  [filename]
   (let [mymeta {:song "songtest"}
         mystream (open {:password "hackme"
                         :mount "testshout.mp3"
                         :stream-format (:MP3 stream-formats)
                         :display-name "test-shout"
                         :description "test-shout stream with example file"})]
-    (with-open [is (FileInputStream. "/Users/jim/music_test/ONHE.mp3")]
-      (stream mystream is mymeta))))
+    (with-open [is (FileInputStream. filename)]
+      (stream mystream is mymeta))
+    (close mystream)))
