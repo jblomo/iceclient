@@ -4,4 +4,5 @@
                            [clojure-http-client "1.1.0-SNAPSHOT"]
                            [net.javazoom/jlayer "1.0.1"]
                            [clj-native "0.9.1-SNAPSHOT"]]
+            :dev-dependencies [[lein-clojars "0.5.0-SNAPSHOT"]]
             :jvm-opts ["-Djna.library.path=/opt/local/lib"])
