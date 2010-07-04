@@ -7,7 +7,8 @@ for installing libshout for transmitting and JLayer for receiveing.
 The newest version of this library should be available on github:
 http://github.com/jblomo/iceclient
 
-Bugs can be reported to http://github.com/jblomo/
+If this library is useful, or you have found bugs, please send a note to
+http://github.com/jblomo/
 
 See project.clj for version information.
 

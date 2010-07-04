@@ -185,7 +185,7 @@
 
 
 (defn test-shout
-  "Setup and example stream.  Requires icecast running and file available"
+  "Setup an example stream.  Requires icecast running and file available."
   [filename]
   (let [mymeta {:song "songtest"}
         mystream (open {:password "hackme"
