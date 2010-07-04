@@ -1,7 +1,5 @@
 (ns iceclient.transmit
-  (:use [clj-native.direct :only [defclib loadlib typeof]]
-        [clj-native.structs :only [byref byval]]
-        [clj-native.callbacks :only [callback]])
+  (:use [clj-native.direct :only [defclib loadlib]])
   (:import
     [java.io File BufferedInputStream FileInputStream FileNotFoundException]
     [java.nio ByteBuffer]))
@@ -61,6 +59,8 @@
 
 (def error-codes (zipmap (vals errors) (keys errors)))
 
+(loadlib shout)
+
 
 (defmacro assert-success
   ([success?] success?)
@@ -71,9 +71,6 @@
           (when-not (= ~success? result#)
             (throw (AssertionError. (str "Running " '~form " resulted in " result# " not " ~success?))))))
       (assert-success ~success? ~@more))))
-
-
-(loadlib shout)
 
 
 (defn open
@@ -159,10 +156,10 @@
   Optionally, after the metadata map, you may specify a 'continues' function.
   If the function returns false, the stream will complete early."
   ([ms input-stream]
-   (stream input-stream nil (constantly true)))
+   (stream ms input-stream nil (constantly true)))
 
   ([ms input-stream metadata]
-   (stream input-stream metadata (constantly true)))
+   (stream ms input-stream metadata (constantly true)))
 
   ([ms input-stream metadata continue?]
    (when metadata
