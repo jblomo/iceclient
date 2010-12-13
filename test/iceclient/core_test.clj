@@ -1,5 +1,5 @@
-(ns iceclient.core-test
-  (:use [iceclient.core] :reload-all)
+(ns iceclient.recieve-test
+  (:use [iceclient.recieve] :reload-all)
   (:use [clojure.test]))
 
 (deftest replace-me ;; FIXME: write
